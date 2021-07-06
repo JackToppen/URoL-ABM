@@ -1,4 +1,6 @@
 import numpy as np
+import random as r
+import math
 
 from pythonabm import Simulation
 from pythonabm import *
@@ -21,9 +23,15 @@ class CellSimulation(Simulation):
         # add agents to the simulation
         self.add_agents(self.num_to_start)
 
-        # create the following agent arrays with initial conditions.
+        # create function for giving random location on circle with uniform distribution
+        def uniform_on_circle():
+            center_x, center_y = self.size[0] / 2, self.size[1] / 2
+            radius = 500 * math.sqrt(r.random())
+            angle = math.tau * r.random()
+            return np.array([center_x + radius * math.cos(angle), center_y + radius * math.sin(angle), 0])
 
-        self.agent_array("locations", override=np.random.rand(self.number_agents, 3) * self.size)
+        # create the following agent arrays with initial conditions
+        self.agent_array("locations", func=uniform_on_circle)
         self.agent_array("radii", func=lambda: 5)
 
         # create graph for holding agent neighbors
