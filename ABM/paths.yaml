@@ -1,0 +1,11 @@
+# Before starting the model, update the following path(s).
+
+# Specify where the model will place the folders containing the outputs for each simulation. If this directory does not
+# exist, the model will automatically make it (asking you first). It's best to use an absolute path so it should look
+# something like the following examples.
+#    Windows -> C:\Gordon\Lightfoot
+#    Linux -> /home/(user)/Simon/Garfunkel
+#    MacOS -> /Users/(user)/Jim/Croce
+
+# Put output path below
+output_dir: C:\Research\Outputs
