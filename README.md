@@ -1,4 +1,4 @@
-# Y-O-Extension-ABM
+# URoL-ABM
 #### Description
 This agent-based model (ABM) was developed alongside work meant to extend the Yereniuk-Olson
 framework for studying ABMs. The model uses CPU parallelization alongside NVIDIA's CUDA
