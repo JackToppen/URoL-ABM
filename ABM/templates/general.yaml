@@ -1,5 +1,5 @@
 # How many agents to begin the simulation? Ex. 1000
-num_to_start: 4000
+num_to_start: 8000
 
 # Do you want to use NVIDIA CUDA acceleration for some computationally tasking methods? Ex. True
 cuda: False

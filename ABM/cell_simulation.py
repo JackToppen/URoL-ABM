@@ -2,11 +2,13 @@ import numpy as np
 import random as r
 import math
 
+from cell_methods import CellMethods
+
 from pythonabm import Simulation
 from pythonabm import *
 
 
-class CellSimulation(Simulation):
+class CellSimulation(CellMethods, Simulation):
     """ This class inherits the Simulation class allowing it to run a
         simulation with the proper functionality.
     """
@@ -16,6 +18,10 @@ class CellSimulation(Simulation):
 
         # read parameters from YAML file and add them to instance variables
         self.yaml_parameters("templates\\general.yaml")
+
+        # the temporal resolution for the simulation
+        self.step_dt = 1800  # dt of each simulation step (1800 sec)
+        self.move_dt = 180  # dt for incremental movement (180 sec)
 
     def setup(self):
         """ Overrides the setup() method from the Simulation class.
@@ -33,9 +39,12 @@ class CellSimulation(Simulation):
         # create the following agent arrays with initial conditions
         self.agent_array("locations", func=uniform_on_circle)
         self.agent_array("radii", func=lambda: 5)
+        self.agent_array("motility_forces", vector=3)
+        self.agent_array("jkr_forces", vector=3)
 
         # create graph for holding agent neighbors
         self.agent_graph("neighbor_graph")
+        self.agent_graph("jkr_graph")
 
         # record initial values
         self.step_values()
@@ -51,12 +60,15 @@ class CellSimulation(Simulation):
         self.get_neighbors("neighbor_graph", 5)
 
         # call the following methods that update agent values
-        self.die()
-        self.reproduce()
-        self.move()
+        # self.die()
+        # self.reproduce()
+        # self.cell_motility()
 
         # add/remove agents from the simulation
         self.update_populations()
+
+        # apply any adhesive or repulsive forces to the cells
+        self.apply_forces()
 
         # save multiple forms of information about the simulation at the current step
         self.step_values()

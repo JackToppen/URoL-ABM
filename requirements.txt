@@ -2,3 +2,4 @@ numpy
 pyyaml
 pythonabm
 opencv-python
+numba

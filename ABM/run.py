@@ -1,5 +1,5 @@
 import yaml
-from cellsimulation import CellSimulation
+from cell_simulation import CellSimulation
 
 # only call start() if this file is being run directly
 if __name__ == "__main__":
