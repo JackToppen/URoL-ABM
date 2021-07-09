@@ -20,10 +20,10 @@ information on this can be found at the bottom.
 
 Download the model directly from GitHub or with the Git command shown below.
 ```
-git clone https://github.com/JackToppen/Y-O-Extension-ABM.git
+git clone https://github.com/JackToppen/URoL-ABM.git
 ```
 
-The downloaded folder (Y-O-Extension-ABM) will contain an ***ABM*** folder (where
+The downloaded folder (URoL-ABM) will contain an ***ABM*** folder (where
 all the model code is) and some additional files including a ***requirements.txt***
 file. With the following command, this file can be used to install
 all required dependencies.
