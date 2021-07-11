@@ -175,32 +175,48 @@ def apply_forces_cpu(number_agents, jkr_force, motility_force, locations, radii,
 
 
 @jit(nopython=True, cache=True)
-def update_diffusion_jit(base, steps, diffuse_dt, last_dt, diffuse_const, spat_res2):
+def update_diffusion_jit(BMP_base, NOG_base):
     """ This just-in-time compiled method performs the actual
         calculations for the update_diffusion() method.
     """
-    # holder the following constants for faster computations
-    a = diffuse_dt * diffuse_const / spat_res2
-    b = 1 - 4 * a
+    # constants
+    dt = 0.005
+    dx = 1
+    k_1 = 0.01  # inhibition of BMP signaling mediated by NOGGIN
+    k_2 = 0.003  # inhibition of BMP signaling mediated by relocalized receptors
+    k_3 = 0.003  # Degradation rate of BMP4
+    k_4 = 0.008  # Production rate of NOGGIN mediated by BMP signaling
+    k_5 = 0.009  # Degradation rate of NOGGIN
+    D_bmp = 10  # Diffusivity of BMP4, 10 um^2/2
+    D_nog = 50  # Diffusivity of NOG, 50 um^2/2
+
+    # calculate the number of steps
+    steps = int(1 / dt)
 
     # finite difference method to solve laplacian diffusion equation, currently 2D
     for i in range(steps):
-        # on the last step apply smaller diffuse dt if step dt doesn't divide nicely
-        if i == steps - 1:
-            a = last_dt * diffuse_const / spat_res2
-            b = 1 - 4 * a
+        # set the Neumann boundary conditions by reflecting the edges of the gradient
+        BMP_base[:, 0] = BMP_base[:, 1]
+        BMP_base[:, -1] = BMP_base[:, -2]
+        BMP_base[0, :] = BMP_base[1, :]
+        BMP_base[-1, :] = BMP_base[-2, :]
+        NOG_base[:, 0] = NOG_base[:, 1]
+        NOG_base[:, -1] = NOG_base[:, -2]
+        NOG_base[0, :] = NOG_base[1, :]
+        NOG_base[-1, :] = NOG_base[-2, :]
 
-        # set the initial conditions by reflecting the edges of the gradient
-        base[:, 0] = base[:, 1]
-        base[:, -1] = base[:, -2]
-        base[0, :] = base[1, :]
-        base[-1, :] = base[-2, :]
+        # calculate the Laplacian of BMP and NOG
+        delta_BMP = (BMP_base[2:, 1:-1] + BMP_base[:-2, 1:-1] + BMP_base[1:-1, 2:] + BMP_base[1:-1, :-2]
+                     - 4 * BMP_base[1:-1, 1:-1]) / dx**2
+        delta_NOG = (NOG_base[2:, 1:-1] + NOG_base[:-2, 1:-1] + NOG_base[1:-1, 2:] + NOG_base[1:-1, :-2]
+                     - 4 * NOG_base[1:-1, 1:-1]) / dx ** 2
 
-        # get the morphogen addition for the diffusion points, based on other points and hold this
-        temp = a * (base[2:, 1:-1] + base[:-2, 1:-1] + base[1:-1, 2:] + base[1:-1, :-2])
+        # get the center values
+        BMP_center = BMP_base[1:-1, 1:-1]
+        NOG_center = NOG_base[1:-1, 1:-1]
 
-        # get the diffusion loss for the diffusion points and add morphogen change from the temporary array
-        base[1:-1, 1:-1] *= b
-        base[1:-1, 1:-1] += temp
+        # update the center values
+        BMP_base[1:-1, 1:-1] = BMP_center + dt * (D_bmp * delta_BMP - k_1 * NOG_center - k_2 - k_3 * BMP_center)
+        NOG_base[1:-1, 1:-1] = NOG_center + dt * (D_nog * delta_NOG + k_4 * BMP_center - k_5 * NOG_center)
 
-    return base
+    return BMP_base, NOG_base

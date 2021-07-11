@@ -123,33 +123,19 @@ class CellMethods:
         self.motility_forces[:, :] = 0
 
     @record_time
-    def update_diffusion(self, gradient_name):
-        """ Approximates the diffusion of the morphogen for the
-            extracellular gradient specified.
+    def update_diffusion(self):
+        """ Solves the PDE for BMP4 and NOGGIN concentrations.
         """
-        # calculate the number of steps and the last step time if it doesn't divide nicely
-        steps, last_dt = divmod(self.step_dt, self.diffuse_dt)
-        steps = int(steps) + 1  # make sure steps is an int, add extra step for the last dt if it's less
-
-        # all gradients are held as 3D arrays for simplicity, get the gradient as a 2D array
-        gradient = self.__dict__[gradient_name][:, :, 0]
-
-        # set max and min concentration values
-        gradient[gradient > self.max_concentration] = self.max_concentration
-        gradient[gradient < 0] = 0
-
         # pad the sides of the array with zeros for holding ghost points
-        base = np.pad(gradient, 1)
+        BMP_base = np.zeros((self.size[0] + 2, self.size[1] + 2))
+        NOG_base = np.zeros((self.size[0] + 2, self.size[1] + 2))
+        BMP_base[1:-1, 1:-1] = self.BMP
+        NOG_base[1:-1, 1:-1] = self.NOG
 
         # call the JIT diffusion function, remove ghost points
-        base = update_diffusion_jit(base, steps, self.diffuse_dt, last_dt, self.diffuse_const, self.spat_res2)
-        gradient = base[1:-1, 1:-1]
-
-        # degrade the morphogen concentrations
-        gradient *= 1 - self.degradation
-
-        # update the simulation with the updated gradient
-        self.__dict__[gradient_name][:, :, 0] = gradient
+        BMP_base, NOG_base = update_diffusion_jit(BMP_base, NOG_base)
+        self.BMP = BMP_base[1:-1, 1:-1]
+        self.NOG = NOG_base[1:-1, 1:-1]
 
     def get_concentration(self, gradient_name, index):
         """ Get the concentration of a gradient for a cell's
@@ -177,29 +163,5 @@ class CellMethods:
         indices = np.floor(self.locations[index] / self.spat_res).astype(int)
         x, y, z = indices[0], indices[1], indices[2]
 
-        # get the four nearest points to the cell in 2D and make array for holding distances
-        points = np.array([[x, y, 0], [x + 1, y, 0], [x, y + 1, 0], [x + 1, y + 1, 0]], dtype=int)
-        if_nearby = np.zeros(4, dtype=bool)
-
-        # go through potential nearby diffusion points
-        for i in range(4):
-            # get point and make sure it's in bounds
-            point = points[i]
-            if point[0] < self.gradient_size[0] and point[1] < self.gradient_size[1]:
-                # get location of point
-                point_location = point * self.spat_res
-
-                # see if point is in diffuse radius, if so update if_nearby index to True
-                if np.linalg.norm(self.locations[index] - point_location) < self.spat_res:
-                    if_nearby[i] = 1
-
-        # get the number of points within diffuse radius
-        total_nearby = np.sum(if_nearby)
-
-        # if at least one diffusion point nearby, go back through points adding morphogen
-        if total_nearby > 0:
-            point_amount = amount / total_nearby
-            for i in range(4):
-                if if_nearby[i]:
-                    x, y, z = points[i][0], points[i][1], 0
-                    gradient[x][y][z] += point_amount
+        # adjust the gradient
+        gradient[x][y][z] += amount

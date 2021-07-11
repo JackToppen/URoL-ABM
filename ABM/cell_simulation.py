@@ -23,6 +23,10 @@ class CellSimulation(CellMethods, Simulation):
         self.step_dt = 1800  # dt of each simulation step (1800 sec)
         self.move_dt = 180  # dt for incremental movement (180 sec)
 
+        # make gradient arrays for BMP4 and NOGGIN
+        self.BMP = np.random.rand(self.size[0], self.size[1])
+        self.NOG = np.random.rand(self.size[0], self.size[1])
+
     def setup(self):
         """ Overrides the setup() method from the Simulation class.
         """
@@ -32,7 +36,7 @@ class CellSimulation(CellMethods, Simulation):
         # create function for giving random location on circle with uniform distribution
         def uniform_on_circle():
             center_x, center_y = self.size[0] / 2, self.size[1] / 2
-            radius = 500 * math.sqrt(r.random())
+            radius = 100 * math.sqrt(r.random())
             angle = math.tau * r.random()
             return np.array([center_x + radius * math.cos(angle), center_y + radius * math.sin(angle), 0])
 
@@ -64,6 +68,8 @@ class CellSimulation(CellMethods, Simulation):
         # self.reproduce()
         # self.cell_motility()
 
+        self.update_diffusion()
+
         # add/remove agents from the simulation
         self.update_populations()
 
@@ -75,6 +81,12 @@ class CellSimulation(CellMethods, Simulation):
         self.step_image()
         self.temp()
         self.data()
+
+        import cv2
+        grad_image = 255 * self.BMP
+        grad_image = grad_image.astype(np.uint8)  # use unsigned int8
+        grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
+        cv2.imwrite("test_bmp.png", grad_image)
 
     @record_time
     def die(self):
