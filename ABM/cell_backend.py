@@ -196,17 +196,13 @@ def update_diffusion_jit(BMP_base, NOG_base, BMP_add):
     # finite difference method to solve laplacian diffusion equation, currently 2D
     for i in range(steps):
         # set the Neumann boundary conditions by reflecting the edges of the gradient
-        # BMP_base[:, 0] = BMP_base[:, 1]
-        # BMP_base[:, -1] = BMP_base[:, -2]
-        # BMP_base[0, :] = BMP_base[1, :]
-        # BMP_base[-1, :] = BMP_base[-2, :]
-
-        BMP_base += BMP_add / steps
-
         NOG_base[:, 0] = NOG_base[:, 1] * 0
         NOG_base[:, -1] = NOG_base[:, -2] * 0
         NOG_base[0, :] = NOG_base[1, :] * 0
         NOG_base[-1, :] = NOG_base[-2, :] * 0
+
+        # add BMP morphogen
+        BMP_base += BMP_add / steps
 
         # calculate the Laplacian of BMP and NOG
         delta_BMP = (BMP_base[2:, 1:-1] + BMP_base[:-2, 1:-1] + BMP_base[1:-1, 2:] + BMP_base[1:-1, :-2]
@@ -222,18 +218,18 @@ def update_diffusion_jit(BMP_base, NOG_base, BMP_add):
         f = - k_1 * NOG_center - k_2
         g = + k_4 * BMP_center
         f_1 = np.argwhere(f > 1)
-        for i in range(len(f_1)):
-            f[f_1[i]] = 1
+        for j in range(len(f_1)):
+            f[f_1[j]] = 1
         f_0 = np.argwhere(f < 0)
-        for i in range(len(f_0)):
-            f[f_0[i]] = 0
+        for j in range(len(f_0)):
+            f[f_0[j]] = 0
 
         g_5 = np.argwhere(g > 5)
-        for i in range(len(g_5)):
-            g[g_5[i]] = 5
+        for j in range(len(g_5)):
+            g[g_5[j]] = 5
         g_0 = np.argwhere(g < 0)
-        for i in range(len(g_0)):
-            g[g_0[i]] = 0
+        for j in range(len(g_0)):
+            g[g_0[j]] = 0
 
         BMP_base[1:-1, 1:-1] = BMP_center + dt * (D_bmp * delta_BMP - k_3 * BMP_center + f)
         NOG_base[1:-1, 1:-1] = NOG_center + dt * (D_nog * delta_NOG - k_5 * NOG_center + f)

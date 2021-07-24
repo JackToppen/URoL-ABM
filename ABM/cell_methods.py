@@ -133,6 +133,7 @@ class CellMethods:
         NOG_base[1:-1, 1:-1] = self.NOG
 
         BMP_add = np.zeros((self.BMP.shape[0] + 2, self.BMP.shape[1] + 2))
+
         for index in range(self.number_agents):
             # find the nearest diffusion point
             half_indices = np.floor(2 * self.locations[index] / 10)
