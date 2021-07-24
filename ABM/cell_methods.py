@@ -127,41 +127,25 @@ class CellMethods:
         """ Solves the PDE for BMP4 and NOGGIN concentrations.
         """
         # pad the sides of the array with zeros for holding ghost points
-        BMP_base = np.zeros((self.size[0] + 2, self.size[1] + 2))
-        NOG_base = np.zeros((self.size[0] + 2, self.size[1] + 2))
+        BMP_base = np.zeros((self.BMP.shape[0] + 2, self.BMP.shape[1] + 2))
+        NOG_base = np.zeros((self.NOG.shape[0] + 2, self.NOG.shape[1] + 2))
         BMP_base[1:-1, 1:-1] = self.BMP
         NOG_base[1:-1, 1:-1] = self.NOG
 
+        BMP_add = np.zeros((self.BMP.shape[0] + 2, self.BMP.shape[1] + 2))
+        for index in range(self.number_agents):
+            # find the nearest diffusion point
+            half_indices = np.floor(2 * self.locations[index] / 10)
+            indices = np.ceil(half_indices / 2).astype(int)
+            x, y = indices[0] + 1, indices[1] + 1
+
+            # only let outer cells receive BMP4 treatment
+            distance = np.linalg.norm(self.locations[index] - np.array([self.size[0] / 2, self.size[1] / 2, 0]))
+            if distance >= 490:
+                # self.receive_BMP4[index] = True
+                BMP_add[x][y] = 5
+
         # call the JIT diffusion function, remove ghost points
-        BMP_base, NOG_base = update_diffusion_jit(BMP_base, NOG_base)
+        BMP_base, NOG_base = update_diffusion_jit(BMP_base, NOG_base, BMP_add)
         self.BMP = BMP_base[1:-1, 1:-1]
         self.NOG = NOG_base[1:-1, 1:-1]
-
-    def get_concentration(self, gradient_name, index):
-        """ Get the concentration of a gradient for a cell's
-            location from the nearest diffusion point.
-        """
-        # get the gradient array
-        gradient = self.__dict__[gradient_name]
-
-        # find the nearest diffusion point
-        half_indices = np.floor(2 * self.locations[index] / self.spat_res)
-        indices = np.ceil(half_indices / 2).astype(int)
-        x, y, z = indices[0], indices[1], indices[2]
-
-        # return the value of the gradient at the diffusion point
-        return gradient[x][y][z]
-
-    def adjust_morphogens(self, gradient_name, index, amount):
-        """ Adjust the concentration of the gradient based on
-            the amount and the location of the cell.
-        """
-        # get the gradient array
-        gradient = self.__dict__[gradient_name]
-
-        # divide the location for a cell by the spatial resolution then take the floor function of it
-        indices = np.floor(self.locations[index] / self.spat_res).astype(int)
-        x, y, z = indices[0], indices[1], indices[2]
-
-        # adjust the gradient
-        gradient[x][y][z] += amount

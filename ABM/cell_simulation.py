@@ -24,8 +24,9 @@ class CellSimulation(CellMethods, Simulation):
         self.move_dt = 180  # dt for incremental movement (180 sec)
 
         # make gradient arrays for BMP4 and NOGGIN
-        self.BMP = np.random.rand(self.size[0], self.size[1])
-        self.NOG = np.random.rand(self.size[0], self.size[1])
+        x, y = int(self.size[0] / 10), int(self.size[1] / 10)
+        self.BMP = np.zeros((x, y))
+        self.NOG = np.zeros((x, y))
 
     def setup(self):
         """ Overrides the setup() method from the Simulation class.
@@ -36,7 +37,7 @@ class CellSimulation(CellMethods, Simulation):
         # create function for giving random location on circle with uniform distribution
         def uniform_on_circle():
             center_x, center_y = self.size[0] / 2, self.size[1] / 2
-            radius = 100 * math.sqrt(r.random())
+            radius = 500 * math.sqrt(r.random())
             angle = math.tau * r.random()
             return np.array([center_x + radius * math.cos(angle), center_y + radius * math.sin(angle), 0])
 
@@ -45,29 +46,23 @@ class CellSimulation(CellMethods, Simulation):
         self.agent_array("radii", func=lambda: 5)
         self.agent_array("motility_forces", vector=3)
         self.agent_array("jkr_forces", vector=3)
+        self.agent_array("states", dtype=int)
+        self.agent_array("BMP_counter")
 
         # create graph for holding agent neighbors
         self.agent_graph("neighbor_graph")
         self.agent_graph("jkr_graph")
 
-        # record initial values
-        self.step_values()
-        self.step_image()
-
     def step(self):
         """ Overrides the step() method from the Simulation class.
         """
-        # prints info about the current step and records the starting time of the step
-        self.info()
-
         # get all neighbors within radius of 2
         self.get_neighbors("neighbor_graph", 5)
 
         # call the following methods that update agent values
-        # self.die()
-        # self.reproduce()
-        # self.cell_motility()
+        self.update()
 
+        # calculate diffusion of BMP4 and NOGGIN
         self.update_diffusion()
 
         # add/remove agents from the simulation
@@ -82,43 +77,67 @@ class CellSimulation(CellMethods, Simulation):
         self.temp()
         self.data()
 
-        import cv2
-        grad_image = 255 * self.BMP
-        grad_image = grad_image.astype(np.uint8)  # use unsigned int8
-        grad_image = cv2.applyColorMap(grad_image, cv2.COLORMAP_OCEAN)
-        cv2.imwrite("test_bmp.png", grad_image)
-
     @record_time
-    def die(self):
-        """ Updates an agent based on the presence of neighbors.
-        """
-        # determine which agents are being removed
-        for index in range(self.number_agents):
-            if r.random() < 0.1:
-                self.mark_to_remove(index)
-
-    @record_time
-    def move(self):
-        """ Assigns new location to agent.
+    def update(self):
+        """ Updates cells based on their state.
         """
         for index in range(self.number_agents):
-            # get new location position
-            new_location = self.locations[index] + 5 * self.random_vector()
+            # find the nearest diffusion point
+            half_indices = np.floor(2 * self.locations[index] / 10)
+            indices = np.ceil(half_indices / 2).astype(int)
+            x, y = indices[0], indices[1]
 
-            # check that the new location is within the space, otherwise use boundary values
-            for i in range(3):
-                if new_location[i] > self.size[i]:
-                    self.locations[index][i] = self.size[i]
-                elif new_location[i] < 0:
-                    self.locations[index][i] = 0
+            # find the nearest diffusion point
+            if self.BMP[x][y] > 0.25:
+                self.BMP_counter[index] += 1
+
+            if self.BMP_counter[index] >= 5:
+                self.states[index] = 2    # CDX2
+            elif 5 > self.BMP_counter[index] >= 3:
+                self.states[index] = 1    # BRA
+            else:
+                self.states[index] = 0    # SOX2
+
+    @record_time
+    def step_image(self, background=(0, 0, 0), origin_bottom=True):
+        """ Overrides default step_image() method.
+        """
+        # only continue if outputting images
+        if self.output_images:
+            # get path and make sure directory exists
+            check_direct(self.images_path)
+
+            # get the size of the array used for imaging in addition to the scaling factor
+            x_size = self.image_quality
+            scale = x_size / self.size[0]
+            y_size = math.ceil(scale * self.size[1])
+
+            # create the agent space background image and apply background color
+            image = np.zeros((y_size, x_size, 3), dtype=np.uint8)
+            image[:, :] = background
+
+            # go through all of the agents
+            for index in range(self.number_agents):
+                # get xy coordinates, the axis lengths, and color of agent
+                x, y = int(scale * self.locations[index][0]), int(scale * self.locations[index][1])
+                major = int(scale * self.radii[index])
+                minor = int(scale * self.radii[index])
+                if self.states[index] == 0:
+                    color = (255, 50, 50)
+                elif self.states[index] == 1:
+                    color = (50, 255, 50)
                 else:
-                    self.locations[index][i] = new_location[i]
+                    color = (50, 50, 255)
 
-    @record_time
-    def reproduce(self):
-        """ If the agent meets criteria, hatch a new agent.
-        """
-        # determine which agents are hatching
-        for index in range(self.number_agents):
-            if r.random() < 0.1:
-                self.mark_to_hatch(index)
+                # draw the agent and a black outline to distinguish overlapping agents
+                image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, color, -1)
+                image = cv2.ellipse(image, (x, y), (major, minor), 0, 0, 360, (0, 0, 0), 1)
+
+            # if the origin should be bottom-left flip it, otherwise it will be top-left
+            if origin_bottom:
+                image = cv2.flip(image, 0)
+
+            # save the image as a PNG
+            image_compression = 4  # image compression of png (0: no compression, ..., 9: max compression)
+            file_name = f"{self.name}_image_{self.current_step}.png"
+            cv2.imwrite(self.images_path + file_name, image, [cv2.IMWRITE_PNG_COMPRESSION, image_compression])

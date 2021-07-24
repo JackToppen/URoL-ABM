@@ -5,7 +5,7 @@ num_to_start: 8000
 cuda: False
 
 # What will the final step number be? Use for when you are beginning a new simulation (mode: 0). Ex. 192
-end_step: 20
+end_step: 10
 
 # What are the dimensions (xyz) of the space? Ex. [4000, 4000, 0]
 size: [1250, 1250, 0]

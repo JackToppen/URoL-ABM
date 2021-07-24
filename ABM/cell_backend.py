@@ -175,39 +175,42 @@ def apply_forces_cpu(number_agents, jkr_force, motility_force, locations, radii,
 
 
 @jit(nopython=True, cache=True)
-def update_diffusion_jit(BMP_base, NOG_base):
+def update_diffusion_jit(BMP_base, NOG_base, BMP_add):
     """ This just-in-time compiled method performs the actual
         calculations for the update_diffusion() method.
     """
     # constants
-    dt = 0.005
-    dx = 1
+    dt = 0.25
+    dx = 10
     k_1 = 0.01  # inhibition of BMP signaling mediated by NOGGIN
     k_2 = 0.003  # inhibition of BMP signaling mediated by relocalized receptors
     k_3 = 0.003  # Degradation rate of BMP4
     k_4 = 0.008  # Production rate of NOGGIN mediated by BMP signaling
     k_5 = 0.009  # Degradation rate of NOGGIN
-    D_bmp = 10  # Diffusivity of BMP4, 10 um^2/2
-    D_nog = 50  # Diffusivity of NOG, 50 um^2/2
+    D_bmp = 10  # Diffusivity of BMP4, 10 um^2/s
+    D_nog = 50  # Diffusivity of NOG, 50 um^2/s
 
     # calculate the number of steps
-    steps = int(1 / dt)
+    steps = int(100 / dt)
 
     # finite difference method to solve laplacian diffusion equation, currently 2D
     for i in range(steps):
         # set the Neumann boundary conditions by reflecting the edges of the gradient
-        BMP_base[:, 0] = BMP_base[:, 1]
-        BMP_base[:, -1] = BMP_base[:, -2]
-        BMP_base[0, :] = BMP_base[1, :]
-        BMP_base[-1, :] = BMP_base[-2, :]
-        NOG_base[:, 0] = NOG_base[:, 1]
-        NOG_base[:, -1] = NOG_base[:, -2]
-        NOG_base[0, :] = NOG_base[1, :]
-        NOG_base[-1, :] = NOG_base[-2, :]
+        # BMP_base[:, 0] = BMP_base[:, 1]
+        # BMP_base[:, -1] = BMP_base[:, -2]
+        # BMP_base[0, :] = BMP_base[1, :]
+        # BMP_base[-1, :] = BMP_base[-2, :]
+
+        BMP_base += BMP_add / steps
+
+        NOG_base[:, 0] = NOG_base[:, 1] * 0
+        NOG_base[:, -1] = NOG_base[:, -2] * 0
+        NOG_base[0, :] = NOG_base[1, :] * 0
+        NOG_base[-1, :] = NOG_base[-2, :] * 0
 
         # calculate the Laplacian of BMP and NOG
         delta_BMP = (BMP_base[2:, 1:-1] + BMP_base[:-2, 1:-1] + BMP_base[1:-1, 2:] + BMP_base[1:-1, :-2]
-                     - 4 * BMP_base[1:-1, 1:-1]) / dx**2
+                     - 4 * BMP_base[1:-1, 1:-1]) / dx ** 2
         delta_NOG = (NOG_base[2:, 1:-1] + NOG_base[:-2, 1:-1] + NOG_base[1:-1, 2:] + NOG_base[1:-1, :-2]
                      - 4 * NOG_base[1:-1, 1:-1]) / dx ** 2
 
@@ -216,7 +219,23 @@ def update_diffusion_jit(BMP_base, NOG_base):
         NOG_center = NOG_base[1:-1, 1:-1]
 
         # update the center values
-        BMP_base[1:-1, 1:-1] = BMP_center + dt * (D_bmp * delta_BMP - k_1 * NOG_center - k_2 - k_3 * BMP_center)
-        NOG_base[1:-1, 1:-1] = NOG_center + dt * (D_nog * delta_NOG + k_4 * BMP_center - k_5 * NOG_center)
+        f = - k_1 * NOG_center - k_2
+        g = + k_4 * BMP_center
+        f_1 = np.argwhere(f > 1)
+        for i in range(len(f_1)):
+            f[f_1[i]] = 1
+        f_0 = np.argwhere(f < 0)
+        for i in range(len(f_0)):
+            f[f_0[i]] = 0
+
+        g_5 = np.argwhere(g > 5)
+        for i in range(len(g_5)):
+            g[g_5[i]] = 5
+        g_0 = np.argwhere(g < 0)
+        for i in range(len(g_0)):
+            g[g_0[i]] = 0
+
+        BMP_base[1:-1, 1:-1] = BMP_center + dt * (D_bmp * delta_BMP - k_3 * BMP_center + f)
+        NOG_base[1:-1, 1:-1] = NOG_center + dt * (D_nog * delta_NOG - k_5 * NOG_center + f)
 
     return BMP_base, NOG_base
