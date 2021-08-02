@@ -142,9 +142,11 @@ class CellMethods:
 
             # only let outer cells receive BMP4 treatment
             distance = np.linalg.norm(self.locations[index] - np.array([self.size[0] / 2, self.size[1] / 2, 0]))
-            if distance >= 490:
+            if distance >= 450:
                 # self.receive_BMP4[index] = True
-                BMP_add[x][y] = 5
+                BMP_add[x][y] = 0.6
+            else:
+                BMP_add[x][y] = 0.3 * self.states[index]
 
         # call the JIT diffusion function, remove ghost points
         BMP_base, NOG_base = update_diffusion_jit(BMP_base, NOG_base, BMP_add)

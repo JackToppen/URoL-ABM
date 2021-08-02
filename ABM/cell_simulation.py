@@ -59,11 +59,11 @@ class CellSimulation(CellMethods, Simulation):
         # get all neighbors within radius of 2
         self.get_neighbors("neighbor_graph", 5)
 
-        # call the following methods that update agent values
-        self.update()
-
         # calculate diffusion of BMP4 and NOGGIN
         self.update_diffusion()
+
+        # call the following methods that update agent values
+        self.update()
 
         # add/remove agents from the simulation
         self.update_populations()
@@ -88,15 +88,20 @@ class CellSimulation(CellMethods, Simulation):
             x, y = indices[0], indices[1]
 
             # find the nearest diffusion point
-            if self.BMP[x][y] > 0.25:
+            if self.BMP[x][y] > 0.02:
                 self.BMP_counter[index] += 1
 
-            if self.BMP_counter[index] >= 5:
-                self.states[index] = 2    # CDX2
-            elif 5 > self.BMP_counter[index] >= 3:
-                self.states[index] = 1    # BRA
-            else:
-                self.states[index] = 0    # SOX2
+                if self.BMP_counter[index] >= 5:
+                    self.states[index] = 1
+                if self.BMP_counter[index] >= 20:
+                    self.states[index] = 2
+            #
+            # if self.BMP_counter[index] >= 30:
+            #     self.states[index] = 2    # CDX2
+            # elif 30 > self.BMP_counter[index] >= 15:
+            #     self.states[index] = 1    # BRA
+            # else:
+            #     self.states[index] = 0    # SOX2
 
     @record_time
     def step_image(self, background=(0, 0, 0), origin_bottom=True):

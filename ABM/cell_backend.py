@@ -191,7 +191,7 @@ def update_diffusion_jit(BMP_base, NOG_base, BMP_add):
     D_nog = 50  # Diffusivity of NOG, 50 um^2/s
 
     # calculate the number of steps
-    steps = int(100 / dt)
+    steps = int(1800 / dt)
 
     # finite difference method to solve laplacian diffusion equation, currently 2D
     for i in range(steps):
